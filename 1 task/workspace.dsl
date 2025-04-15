@@ -1,22 +1,18 @@
 workspace {
 
     model {
-        // 1. Пользователи (роли)
         anonymousUser = person "Anonymous User" "Посетитель, не зарегистрированный в системе"
         registeredUser = person "Registered User" "Пользователь, имеющий аккаунт и доступ к функциональности"
 
         moderator = person "Moderator" "Модератор, следящий за соблюдением правил"
         admin = person "Administrator" "Администратор системы, управляет пользователями и сервисами"
 
-        // 2. Внешние системы
         emailService = softwareSystem "Email Service" "Сторонняя система отправки email-уведомлений"
         paymentGateway = softwareSystem "Payment Gateway" "Сторонний платёжный шлюз"
 
-        // 3. Целевая система
         socialNetwork = softwareSystem "Social Network" {
             description "Платформа для общения, публикаций, сообщений, покупок и подписок."
 
-            // 5. Контейнеры
             authService = container "Auth Service" {
                 description "Обрабатывает регистрацию, вход, аутентификацию."
                 technology "Spring Boot, JWT"
@@ -58,7 +54,6 @@ workspace {
             }
         }
 
-        // 6. Связи
         anonymousUser -> authService "Регистрируется / входит"
         registeredUser -> apiGateway "Взаимодействует с API"
 
