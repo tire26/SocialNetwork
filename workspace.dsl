@@ -52,6 +52,11 @@ workspace {
                 description "Входная точка системы, маршрутизация."
                 technology "Nginx, Kong"
             }
+
+            database = container "User Database" {
+                description "Долговременное хранение пользователей"
+                technology "PostgreSQL 14"
+            }
         }
 
         anonymousUser -> authService "Регистрируется / входит"
@@ -66,6 +71,8 @@ workspace {
         apiGateway -> notificationService "Уведомления"
         apiGateway -> paymentService "Подписка и оплата"
         apiGateway -> adminService "Панель управления (если админ)"
+
+        userService -> database "Читает и записывает данные пользователей"
 
         notificationService -> emailService "Отправка email-уведомлений"
         paymentService -> paymentGateway "Обработка платежей"

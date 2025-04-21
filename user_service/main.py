@@ -1,8 +1,11 @@
+import os
+from datetime import datetime, timedelta
+
+import psycopg2
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from typing import Dict
-from datetime import datetime, timedelta
 from jose import jwt, JWTError
+from passlib.context import CryptContext
 
 from models import User, TokenResponse
 
@@ -12,17 +15,33 @@ SECRET_KEY = "supersecret"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@db:5432/users_db")
+conn = psycopg2.connect(DATABASE_URL)
+cursor = conn.cursor()
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-# In-memory store
-users_db: Dict[str, str] = {
-    "admin": "secret"
-}
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
 
 def authenticate_user(username: str, password: str):
-    if username in users_db and users_db[username] == password:
-        return User(username=username, password=password)
-    return None
+    cursor.execute("SELECT password FROM users WHERE username = %s", (username,))
+    result = cursor.fetchone()
+    if not result:
+        return None
+    hashed_password = result[0]
+    if not verify_password(password, hashed_password):
+        return None
+    return User(username=username, password=hashed_password)
+
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
@@ -30,17 +49,21 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
+
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             raise HTTPException(status_code=401, detail="Invalid credentials")
-        if username not in users_db:
+        cursor.execute("SELECT password FROM users WHERE username = %s", (username,))
+        result = cursor.fetchone()
+        if not result:
             raise HTTPException(status_code=404, detail="User not found")
-        return User(username=username, password=users_db[username])
+        return User(username=username, password=result[0])
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
 
 @app.post("/login", response_model=TokenResponse)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -50,12 +73,17 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     token = create_access_token(data={"sub": user.username})
     return TokenResponse(access_token=token, token_type="bearer")
 
+
 @app.post("/register")
 async def register(user: User):
-    if user.username in users_db:
+    cursor.execute("SELECT id FROM users WHERE username = %s", (user.username,))
+    if cursor.fetchone():
         raise HTTPException(status_code=400, detail="User already exists")
-    users_db[user.username] = user.password
+    hashed_password = get_password_hash(user.password)
+    cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (user.username, hashed_password))
+    conn.commit()
     return {"msg": "User registered"}
+
 
 @app.get("/me", response_model=User)
 async def read_users_me(current_user: User = Depends(get_current_user)):
