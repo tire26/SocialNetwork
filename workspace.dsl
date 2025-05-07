@@ -53,9 +53,14 @@ workspace {
                 technology "Nginx, Kong"
             }
 
-            database = container "User Database" {
+            userDatabase = container "User Database" {
                 description "Долговременное хранение пользователей"
                 technology "PostgreSQL 14"
+            }
+
+            chatDatabase = container "Chat Database" {
+                description "Хранение сообщений между пользователями"
+                technology "MongoDB 5.0"
             }
         }
 
@@ -72,8 +77,8 @@ workspace {
         apiGateway -> paymentService "Подписка и оплата"
         apiGateway -> adminService "Панель управления (если админ)"
 
-        userService -> database "Читает и записывает данные пользователей"
-
+        userService -> userDatabase "Читает и записывает данные пользователей"
+        chatService -> chatDatabase "Сохраняет и загружает сообщения"
         notificationService -> emailService "Отправка email-уведомлений"
         paymentService -> paymentGateway "Обработка платежей"
 
