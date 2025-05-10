@@ -62,6 +62,11 @@ workspace {
                 description "Хранение сообщений между пользователями"
                 technology "MongoDB 5.0"
             }
+
+            redis = container "Redis Cache" {
+                description "Кеширование пользовательских данных"
+                technology "Redis 6"
+            }
         }
 
         anonymousUser -> authService "Регистрируется / входит"
@@ -78,6 +83,7 @@ workspace {
         apiGateway -> adminService "Панель управления (если админ)"
 
         userService -> userDatabase "Читает и записывает данные пользователей"
+        userService -> redis "Чтение/запись кеша"
         chatService -> chatDatabase "Сохраняет и загружает сообщения"
         notificationService -> emailService "Отправка email-уведомлений"
         paymentService -> paymentGateway "Обработка платежей"
